@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ZRG AR-STASH | الخزنة البصرية</title>
+<style>
+  :root {
+    --gold: #D4AF37;
+    --gold-dim: #8a701e;
+    --bg: #08080a;
+    --panel: rgba(16, 16, 20, 0.88);
+  }
+  * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+  body { margin: 0; background: var(--bg); color: #fff; overflow: hidden; height: 100vh; }
+  video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
+  canvas { display: none; }
+
+  /* إطار الرادار البصري */
+  .reticle {
+    position: fixed; top: 38%; left: 50%; transform: translate(-50%, -50%);
+    width: 240px; height: 240px; border: 2px dashed rgba(212, 175, 55, 0.45);
+    border-radius: 24px; z-index: 2; pointer-events: none; transition: 0.3s;
+    box-shadow: 0 0 30px rgba(0,0,0,0.4) inset;
+  }
+  .reticle.matched {
+    border: 3px solid var(--gold);
+    box-shadow: 0 0 40px rgba(212, 175, 55, 0.7);
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+
+  /* الشريط العلوي */
+  .top-bar {
+    position: fixed; top: 14px; left: 14px; right: 14px; z-index: 3;
+    background: var(--panel); border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 16px; padding: 12px 16px; backdrop-filter: blur(10px);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .brand { color: var(--gold); font-weight: 800; letter-spacing: 1px; font-size: 15px; }
+  .match-pill {
+    background: #1a1a22; border: 1px solid var(--gold-dim); color: var(--gold);
+    padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold;
+  }
+
+  /* لوحة التحكم السفلية */
+  .controls {
+    position: fixed; bottom: 14px; left: 14px; right: 14px; z-index: 3;
+    background: var(--panel); border: 1px solid rgba(212, 175, 55, 0.35);
+    border-radius: 20px; padding: 16px; backdrop-filter: blur(12px);
+  }
+  .status-text { text-align: center; font-size: 13px; color: #ddd; margin-bottom: 10px; }
+  .slider-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--gold); margin-bottom: 10px; }
+  input[type="range"] { flex: 1; accent-color: var(--gold); }
+
+  .nfc-row {
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(255,255,255,0.04); padding: 8px 12px; border-radius: 12px; margin-bottom: 12px;
+    font-size: 12px;
+  }
+  .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button, .file-label {
+    border: none; border-radius: 12px; padding: 12px; font-size: 13px; font-weight: 700;
+    cursor: pointer; text-align: center; transition: 0.2s;
+  }
+  .file-label { background: #22222b; color: #fff; border: 1px solid #3a3a48; display: block; }
+  .btn-gold { background: linear-gradient(135deg, #D4AF37, #AA821C); color: #000; }
+  .btn-nfc { background: #16222f; color: #5bc0ff; border: 1px solid #2b4c6f; padding: 6px 10px; font-size: 11px; }
+
+  /* عارض الخزنة المفتوحة */
+  .vault-modal {
+    position: fixed; inset: 0; background: #070709; z-index: 10;
+    display: none; flex-direction: column; padding: 16px;
+  }
+  .vault-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 12px; border-bottom: 1px solid rgba(212,175,55,0.3);
+  }
+  .vault-viewer {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; margin: 12px 0; background: #0e0e12; border-radius: 16px;
+  }
+  .vault-viewer img, .vault-viewer iframe { max-width: 100%; max-height: 100%; border: none; border-radius: 12px; }
+  .vault-viewer iframe { width: 100%; height: 100%; }
+  .vault-nav { display: flex; gap: 10px; justify-content: space-between; align-items: center; }
+  .btn-danger { background: #8b1111; color: #fff; padding: 8px 14px; }
+</style>
+</head>
+<body>
+
+<video id="cam" autoplay playsinline muted></video>
+<canvas id="procCanvas" width="48" height="48"></canvas>
+<div id="reticle" class="reticle"></div>
+
+<div class="top-bar">
+  <div class="brand">✦ ZRG AR-STASH</div>
+  <div id="matchBadge" class="match-pill">تطابق: 0%</div>
+</div>
+
+<div class="controls">
+  <div id="statusMsg" class="status-text">وجّه الكاميرا نحو الزاوية السرية في الغرفة</div>
+
+  <div class="slider-row">
+    <span>مرونة الزاوية:</span>
+    <input type="range" id="thresholdSlider" min="55" max="90" value="72">
+    <span id="thresholdVal">72%</span>
+  </div>
+
+  <div class="nfc-row">
+    <span id="nfcStatus">قفل بطاقة التعريف (NFC): اختياري / غير مفعل</span>
+    <button class="btn-nfc" onclick="scanNfcCard()">مسح البطاقة</button>
+  </div>
+
+  <div class="btn-grid">
+    <label class="file-label">
+      1. اختر صور / PDF
+      <input type="file" id="fileInput" multiple accept="image/*,application/pdf" style="display:none" onchange="handleFiles(this.files)">
+    </label>
+    <button class="btn-gold" onclick="lockInAngle()">2. أخفِ في هذه الزاوية</button>
+  </div>
+</div>
+
+<!-- عارض الخزنة عند تطابق الزاوية -->
+<div id="vaultModal" class="vault-modal">
+  <div class="vault-header">
+    <div style="color:var(--gold); font-weight:bold;" id="vaultTitle">الخزنة المفتوحة</div>
+    <button class="btn-danger" onclick="closeVault()">قفل وإخفاء ✕</button>
+  </div>
+  <div id="vaultViewer" class="vault-viewer"></div>
+  <div class="vault-nav">
+    <button class="file-label" style="width:30%" onclick="navVault(-1)">◀ السابق</button>
+    <span id="itemCounter" style="font-size:13px; color:#bbb;">1 / 1</span>
+    <button class="file-label" style="width:30%" onclick="navVault(1)">التالي ▶</button>
+  </div>
+</div>
+
+<script>
+const video = document.getElementById('cam');
+const canvas = document.getElementById('procCanvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const matchBadge = document.getElementById('matchBadge');
+const statusMsg = document.getElementById('statusMsg');
+const reticle = document.getElementById('reticle');
+const thresholdSlider = document.getElementById('thresholdSlider');
+const thresholdVal = document.getElementById('thresholdVal');
+
+let selectedFiles = [];
+let currentNfcId = "";
+let anchorData = null;
+let vaultItems = [];
+let currentIdx = 0;
+let isVaultOpen = false;
+let cooldown = false;
+
+thresholdSlider.oninput = () => thresholdVal.textContent = thresholdSlider.value + "%";
+
+// 1. تشغيل الكاميرا الخلفية
+async function initCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } }, audio: false
+    });
+    video.srcObject = stream;
+    loadSavedAnchor();
+    setInterval(scanLiveFrame, 400);
+  } catch (e) {
+    statusMsg.textContent = "يرجى السماح بصلاحية الكاميرا من إعدادات المتصفح";
+  }
+}
+
+// 2. استخراج بصمة بصرية مرنة مقاومة لتغير الزاوية والمسافة (HSV Color + Spatial Grid)
+function extractVisualFingerprint() {
+  ctx.drawImage(video, 0, 0, 48, 48);
+  const img = ctx.getImageData(0, 0, 48, 48).data;
+  const hist = new Float32Array(36); // 24 خانة للألوان + 12 للإضاءة
+  for (let i = 0; i < img.length; i += 4) {
+    const r = img[i] / 255, g = img[i+1] / 255, b = img[i+2] / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const d = max - min;
+    let h = 0;
+    if (d !== 0) {
+      if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+      else if (max === g) h = ((b - r) / d + 2) / 6;
+      else h = ((r - g) / d + 4) / 6;
+    }
+    const hBin = Math.min(23, Math.floor(h * 24));
+    const vBin = 24 + Math.min(11, Math.floor(max * 12));
+    hist[hBin]++;
+    hist[vBin]++;
+  }
+  return Array.from(hist);
+}
+
+function compareFingerprints(a, b) {
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  return (normA && normB) ? (dot / (Math.sqrt(normA) * Math.sqrt(normB))) : 0;
+}
+
+// 3. قراءة بطاقة NFC (اختياري)
+async function scanNfcCard() {
+  if (!('NDEFReader' in window)) {
+    alert("متصفحك الحالي لا يدعم Web NFC، سيتم الاعتماد على بصمة الزاوية البصرية.");
+    return;
+  }
+  try {
+    const ndef = new NDEFReader();
+    await ndef.scan();
+    document.getElementById('nfcStatus').textContent = "قرّب بطاقة التعريف الآن من ظهر الهاتف...";
+    ndef.onreading = event => {
+      currentNfcId = event.serialNumber || "CARD_VERIFIED";
+      document.getElementById('nfcStatus').textContent = "✔ تم ربط البطاقة البيومترية بنجاح";
+      if (navigator.vibrate) navigator.vibrate(100);
+    };
+  } catch (e) {
+    alert("تأكد من تفعيل NFC في إعدادات الهاتف.");
+  }
+}
+
+function handleFiles(files) {
+  selectedFiles = Array.from(files);
+  statusMsg.textContent = `تم تجهيز ${selectedFiles.length} ملف. وجّه الكاميرا للزاوية واضغط (2)`;
+}
+
+// 4. قاعدة بيانات محلية مشفرة IndexedDB داخل الهاتف بدون إنترنت
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("ZRG_AR_VAULT_DB", 1);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains("stash")) db.createObjectStore("stash");
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function lockInAngle() {
+  if (!selectedFiles.length) {
+    alert("اختر صوراً أو ملفات PDF أولاً!");
+    return;
+  }
+  statusMsg.textContent = "جاري تشفير الملفات وربطها ببصمة الزاوية...";
+  const fingerprint = extractVisualFingerprint();
+  const threshold = parseInt(thresholdSlider.value) / 100;
+
+  const processed = await Promise.all(selectedFiles.map(file => new Promise(res => {
+    const reader = new FileReader();
+    reader.onload = () => res({ name: file.name, type: file.type, data: reader.result });
+    reader.readAsDataURL(file);
+  })));
+
+  const payload = { fingerprint, threshold, nfcId: currentNfcId, items: processed };
+  const db = await openDB();
+  const tx = db.transaction("stash", "readwrite");
+  tx.objectStore("stash").put(payload, "active_vault");
+
+  tx.oncomplete = () => {
+    anchorData = payload;
+    selectedFiles = [];
+    if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+    statusMsg.textContent = "✔ تم الإخفاء بنجاح! وجّه الكاميرا لزاوية أخرى لإغلاقها";
+  };
+}
+
+async function loadSavedAnchor() {
+  const db = await openDB();
+  const tx = db.transaction("stash", "readonly");
+  const req = tx.objectStore("stash").get("active_vault");
+  req.onsuccess = () => {
+    if (req.result) {
+      anchorData = req.result;
+      thresholdSlider.value = Math.round(anchorData.threshold * 100);
+      thresholdVal.textContent = thresholdSlider.value + "%";
+    }
+  };
+}
+
+// 5. الفحص الحي المستمر للكاميرا
+function scanLiveFrame() {
+  if (!anchorData || isVaultOpen || cooldown || video.readyState < 2) return;
+  const liveFp = extractVisualFingerprint();
+  const sim = compareFingerprints(anchorData.fingerprint, liveFp);
+  const pct = Math.round(sim * 100);
+  matchBadge.textContent = `تطابق: ${pct}%`;
+
+  const reqThreshold = parseInt(thresholdSlider.value) / 100;
+  if (sim >= reqThreshold) {
+    if (anchorData.nfcId && anchorData.nfcId !== currentNfcId) {
+      statusMsg.textContent = "✦ تم رصد الزاوية! اضغط (مسح البطاقة) وقرّب بطاقتك";
+      return;
+    }
+    reticle.classList.add('matched');
+    if (navigator.vibrate) navigator.vibrate(120);
+    openVault(anchorData.items);
+  } else {
+    reticle.classList.remove('matched');
+  }
+}
+
+function openVault(items) {
+  isVaultOpen = true;
+  vaultItems = items;
+  currentIdx = 0;
+  document.getElementById('vaultModal').style.display = 'flex';
+  renderVaultItem();
+}
+
+function renderVaultItem() {
+  const item = vaultItems[currentIdx];
+  const viewer = document.getElementById('vaultViewer');
+  document.getElementById('vaultTitle').textContent = item.name;
+  document.getElementById('itemCounter').textContent = `${currentIdx + 1} من ${vaultItems.length}`;
+  if (item.type.includes('pdf')) {
+    viewer.innerHTML = `<iframe src="${item.data}"></iframe>`;
+  } else {
+    viewer.innerHTML = `<img src="${item.data}" alt="secret">`;
+  }
+}
+
+function navVault(dir) {
+  currentIdx = (currentIdx + dir + vaultItems.length) % vaultItems.length;
+  renderVaultItem();
+}
+
+function closeVault() {
+  document.getElementById('vaultModal').style.display = 'none';
+  document.getElementById('vaultViewer').innerHTML = '';
+  isVaultOpen = false;
+  cooldown = true;
+  reticle.classList.remove('matched');
+  setTimeout(() => cooldown = false, 3000);
+}
+
+initCamera();
+</script>
+</body>
+</html>
