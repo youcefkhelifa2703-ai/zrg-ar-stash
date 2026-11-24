@@ -3,83 +3,133 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>ZRG AR-STASH | الخزنة البصرية</title>
+<title>ZRG AR-VAULT | الخزنة العائمة</title>
 <style>
   :root {
     --gold: #D4AF37;
-    --gold-dim: #8a701e;
-    --bg: #08080a;
-    --panel: rgba(16, 16, 20, 0.88);
+    --bg: #070709;
+    --panel: rgba(14, 14, 18, 0.9);
   }
   * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
-  body { margin: 0; background: var(--bg); color: #fff; overflow: hidden; height: 100vh; }
+  body { margin: 0; background: var(--bg); color: #fff; overflow: hidden; height: 100vh; user-select: none; }
   video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
   canvas { display: none; }
 
-  /* إطار الرادار البصري */
-  .reticle {
-    position: fixed; top: 38%; left: 50%; transform: translate(-50%, -50%);
-    width: 240px; height: 240px; border: 2px dashed rgba(212, 175, 55, 0.45);
-    border-radius: 24px; z-index: 2; pointer-events: none; transition: 0.3s;
-    box-shadow: 0 0 30px rgba(0,0,0,0.4) inset;
+  /* إطار التوجيه عند الإخفاء */
+  .aim-box {
+    position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%);
+    width: 190px; height: 190px; border: 1.5px dashed rgba(212, 175, 55, 0.5);
+    border-radius: 20px; z-index: 2; pointer-events: none; transition: 0.2s;
   }
-  .reticle.matched {
-    border: 3px solid var(--gold);
-    box-shadow: 0 0 40px rgba(212, 175, 55, 0.7);
-    transform: translate(-50%, -50%) scale(1.06);
+
+  /* أيقونة المجلد العائم فوق الهدف في الواقع المعزز (AR) */
+  .ar-floating-folder {
+    position: fixed;
+    top: 42%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.5);
+    z-index: 5;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    animation: floatPulse 2s infinite ease-in-out;
+    transition: top 0.18s linear, left 0.18s linear, transform 0.25s ease;
+  }
+  .ar-floating-folder.visible {
+    display: flex;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  @keyframes floatPulse {
+    0%, 100% { filter: drop-shadow(0 0 12px rgba(212, 175, 55, 0.7)); }
+    50% { filter: drop-shadow(0 0 26px rgba(212, 175, 55, 1)); }
+  }
+  .folder-icon-wrap {
+    position: relative;
+    width: 96px; height: 82px;
+    background: linear-gradient(145deg, #f3d066, #b88c1e);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid #fff3c4;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.75);
+  }
+  .folder-tab {
+    position: absolute; top: -10px; right: 10px;
+    width: 38px; height: 14px;
+    background: #d4af37; border-radius: 8px 8px 0 0;
+  }
+  .lock-badge {
+    position: absolute; bottom: -10px; left: -10px;
+    width: 38px; height: 38px;
+    background: #111116; border: 2px solid var(--gold);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .ar-label {
+    margin-top: 14px;
+    background: rgba(10, 10, 14, 0.88);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    white-space: nowrap;
   }
 
   /* الشريط العلوي */
   .top-bar {
-    position: fixed; top: 14px; left: 14px; right: 14px; z-index: 3;
+    position: fixed; top: 14px; left: 14px; right: 14px; z-index: 4;
     background: var(--panel); border: 1px solid rgba(212, 175, 55, 0.3);
-    border-radius: 16px; padding: 12px 16px; backdrop-filter: blur(10px);
+    border-radius: 16px; padding: 10px 16px;
     display: flex; justify-content: space-between; align-items: center;
   }
-  .brand { color: var(--gold); font-weight: 800; letter-spacing: 1px; font-size: 15px; }
-  .match-pill {
-    background: #1a1a22; border: 1px solid var(--gold-dim); color: var(--gold);
-    padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold;
-  }
+  .brand { color: var(--gold); font-weight: 800; font-size: 14px; }
+  .pill { background: #181820; border: 1px solid #4a3d14; color: var(--gold); padding: 4px 10px; border-radius: 14px; font-size: 12px; }
 
   /* لوحة التحكم السفلية */
   .controls {
-    position: fixed; bottom: 14px; left: 14px; right: 14px; z-index: 3;
-    background: var(--panel); border: 1px solid rgba(212, 175, 55, 0.35);
-    border-radius: 20px; padding: 16px; backdrop-filter: blur(12px);
+    position: fixed; bottom: 14px; left: 14px; right: 14px; z-index: 4;
+    background: var(--panel); border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 20px; padding: 14px;
   }
-  .status-text { text-align: center; font-size: 13px; color: #ddd; margin-bottom: 10px; }
-  .slider-row { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--gold); margin-bottom: 10px; }
-  input[type="range"] { flex: 1; accent-color: var(--gold); }
-
-  .nfc-row {
-    display: flex; justify-content: space-between; align-items: center;
-    background: rgba(255,255,255,0.04); padding: 8px 12px; border-radius: 12px; margin-bottom: 12px;
-    font-size: 12px;
-  }
+  .status-text { text-align: center; font-size: 13px; color: #e2e2e2; margin-bottom: 10px; }
   .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   button, .file-label {
     border: none; border-radius: 12px; padding: 12px; font-size: 13px; font-weight: 700;
-    cursor: pointer; text-align: center; transition: 0.2s;
+    cursor: pointer; text-align: center;
   }
-  .file-label { background: #22222b; color: #fff; border: 1px solid #3a3a48; display: block; }
-  .btn-gold { background: linear-gradient(135deg, #D4AF37, #AA821C); color: #000; }
-  .btn-nfc { background: #16222f; color: #5bc0ff; border: 1px solid #2b4c6f; padding: 6px 10px; font-size: 11px; }
+  .file-label { background: #22222c; color: #fff; border: 1px solid #3c3c4c; display: block; }
+  .btn-gold { background: linear-gradient(135deg, #D4AF37, #A87E18); color: #000; }
 
-  /* عارض الخزنة المفتوحة */
+  /* نافذة طلب بطاقة التعريف عند الضغط على المجلد */
+  .nfc-prompt-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9;
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  .nfc-card-box {
+    background: #121217; border: 1.5px solid var(--gold); border-radius: 24px;
+    padding: 24px; width: 100%; max-width: 340px; text-align: center;
+  }
+  .id-anim {
+    font-size: 48px; margin: 12px 0;
+    animation: pulseId 1.4s infinite;
+  }
+  @keyframes pulseId { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+
+  /* عارض الملفات بعد الفتح بالبطاقة */
   .vault-modal {
     position: fixed; inset: 0; background: #070709; z-index: 10;
     display: none; flex-direction: column; padding: 16px;
   }
   .vault-header {
     display: flex; justify-content: space-between; align-items: center;
-    padding-bottom: 12px; border-bottom: 1px solid rgba(212,175,55,0.3);
+    padding-bottom: 10px; border-bottom: 1px solid rgba(212,175,55,0.3);
   }
   .vault-viewer {
     flex: 1; display: flex; align-items: center; justify-content: center;
-    overflow: hidden; margin: 12px 0; background: #0e0e12; border-radius: 16px;
+    overflow: hidden; margin: 12px 0; background: #0e0e13; border-radius: 16px;
   }
-  .vault-viewer img, .vault-viewer iframe { max-width: 100%; max-height: 100%; border: none; border-radius: 12px; }
+  .vault-viewer img, .vault-viewer iframe { max-width: 100%; max-height: 100%; border: none; border-radius: 10px; }
   .vault-viewer iframe { width: 100%; height: 100%; }
   .vault-nav { display: flex; gap: 10px; justify-content: space-between; align-items: center; }
   .btn-danger { background: #8b1111; color: #fff; padding: 8px 14px; }
@@ -88,41 +138,51 @@
 <body>
 
 <video id="cam" autoplay playsinline muted></video>
-<canvas id="procCanvas" width="48" height="48"></canvas>
-<div id="reticle" class="reticle"></div>
+<canvas id="procCanvas" width="64" height="64"></canvas>
+<div id="aimBox" class="aim-box"></div>
+
+<!-- المجلد العائم فوق الهدف عند رؤيته بالكاميرا -->
+<div id="arFolder" class="ar-floating-folder" onclick="onFolderClicked()">
+  <div class="folder-icon-wrap">
+    <div class="folder-tab"></div>
+    <span style="font-size: 38px;">📁</span>
+    <div class="lock-badge">🔒</div>
+  </div>
+  <div id="arFolderLabel" class="ar-label">ملف سري مقفل (اضغط للفتح)</div>
+</div>
 
 <div class="top-bar">
-  <div class="brand">✦ ZRG AR-STASH</div>
-  <div id="matchBadge" class="match-pill">تطابق: 0%</div>
+  <div class="brand">✦ ZRG AR-VAULT</div>
+  <div id="scanStatus" class="pill">رادار AR نشط</div>
 </div>
 
 <div class="controls">
-  <div id="statusMsg" class="status-text">وجّه الكاميرا نحو الزاوية السرية في الغرفة</div>
-
-  <div class="slider-row">
-    <span>مرونة الزاوية:</span>
-    <input type="range" id="thresholdSlider" min="55" max="90" value="72">
-    <span id="thresholdVal">72%</span>
-  </div>
-
-  <div class="nfc-row">
-    <span id="nfcStatus">قفل بطاقة التعريف (NFC): اختياري / غير مفعل</span>
-    <button class="btn-nfc" onclick="scanNfcCard()">مسح البطاقة</button>
-  </div>
-
+  <div id="statusMsg" class="status-text">اختر الملفات ثم وجّه الكاميرا نحو النافذة أو المكان لإخفائها</div>
   <div class="btn-grid">
     <label class="file-label">
       1. اختر صور / PDF
       <input type="file" id="fileInput" multiple accept="image/*,application/pdf" style="display:none" onchange="handleFiles(this.files)">
     </label>
-    <button class="btn-gold" onclick="lockInAngle()">2. أخفِ في هذه الزاوية</button>
+    <button class="btn-gold" onclick="hideAtTarget()">2. ثبّت المجلد هنا</button>
   </div>
 </div>
 
-<!-- عارض الخزنة عند تطابق الزاوية -->
+<!-- نافذة طلب بطاقة التعريف الوطنية عند الضغط على المجلد العائم -->
+<div id="nfcModal" class="nfc-prompt-modal">
+  <div class="nfc-card-box">
+    <div style="color:var(--gold); font-weight:800; font-size:17px;">مطلوب بطاقة التعريف الوطنية</div>
+    <div class="id-anim">🪪</div>
+    <div id="nfcPromptText" style="font-size:13px; color:#ccc; line-height:1.6; margin-bottom:16px;">
+      قرّب بطاقة التعريف البيومترية من ظهر الهاتف لفتح قفل المجلد السري
+    </div>
+    <button class="file-label" style="width:100%" onclick="closeNfcModal()">إلغاء</button>
+  </div>
+</div>
+
+<!-- عارض الملفات المفتوحة -->
 <div id="vaultModal" class="vault-modal">
   <div class="vault-header">
-    <div style="color:var(--gold); font-weight:bold;" id="vaultTitle">الخزنة المفتوحة</div>
+    <div style="color:var(--gold); font-weight:bold; font-size:14px;" id="vaultTitle">الخزنة المفتوحة</div>
     <button class="btn-danger" onclick="closeVault()">قفل وإخفاء ✕</button>
   </div>
   <div id="vaultViewer" class="vault-viewer"></div>
@@ -137,172 +197,209 @@
 const video = document.getElementById('cam');
 const canvas = document.getElementById('procCanvas');
 const ctx = canvas.getContext('2d', { willReadFrequently: true });
-const matchBadge = document.getElementById('matchBadge');
+const arFolder = document.getElementById('arFolder');
+const arFolderLabel = document.getElementById('arFolderLabel');
 const statusMsg = document.getElementById('statusMsg');
-const reticle = document.getElementById('reticle');
-const thresholdSlider = document.getElementById('thresholdSlider');
-const thresholdVal = document.getElementById('thresholdVal');
+const scanStatus = document.getElementById('scanStatus');
 
 let selectedFiles = [];
-let currentNfcId = "";
 let anchorData = null;
 let vaultItems = [];
 let currentIdx = 0;
 let isVaultOpen = false;
-let cooldown = false;
+let nfcAbortController = null;
 
-thresholdSlider.oninput = () => thresholdVal.textContent = thresholdSlider.value + "%";
-
-// 1. تشغيل الكاميرا الخلفية
 async function initCamera() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" } }, audio: false
     });
     video.srcObject = stream;
-    loadSavedAnchor();
-    setInterval(scanLiveFrame, 400);
+    await loadSavedAnchor();
+    setInterval(trackTargetInView, 320);
   } catch (e) {
-    statusMsg.textContent = "يرجى السماح بصلاحية الكاميرا من إعدادات المتصفح";
+    statusMsg.textContent = "يرجى السماح بصلاحية الكاميرا";
   }
 }
 
-// 2. استخراج بصمة بصرية مرنة مقاومة لتغير الزاوية والمسافة (HSV Color + Spatial Grid)
-function extractVisualFingerprint() {
-  ctx.drawImage(video, 0, 0, 48, 48);
-  const img = ctx.getImageData(0, 0, 48, 48).data;
-  const hist = new Float32Array(36); // 24 خانة للألوان + 12 للإضاءة
-  for (let i = 0; i < img.length; i += 4) {
-    const r = img[i] / 255, g = img[i+1] / 255, b = img[i+2] / 255;
-    const max = Math.max(r, g, b), min = Math.min(r, g, b);
-    const d = max - min;
-    let h = 0;
-    if (d !== 0) {
-      if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-      else if (max === g) h = ((b - r) / d + 2) / 6;
-      else h = ((r - g) / d + 4) / 6;
-    }
-    const hBin = Math.min(23, Math.floor(h * 24));
-    const vBin = 24 + Math.min(11, Math.floor(max * 12));
-    hist[hBin]++;
-    hist[vBin]++;
+// استخراج بصمة الشكل والحواف + الألوان (تتعرف على النافذة أو المكان حتى من بعيد)
+function extractPatchSignature(sx, sy, sw, sh) {
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, 32, 32);
+  const data = ctx.getImageData(0, 0, 32, 32).data;
+  const gray = new Float32Array(32 * 32);
+  let mean = 0;
+
+  for (let i = 0; i < 1024; i++) {
+    const g = (data[i*4] * 0.299 + data[i*4+1] * 0.587 + data[i*4+2] * 0.114);
+    gray[i] = g;
+    mean += g;
   }
-  return Array.from(hist);
+  mean /= 1024;
+
+  // تطبيع الإضاءة (Zero-Mean Normalization) حتى يعمل في الليل والنهار ومن بعيد
+  let norm = 0;
+  for (let i = 0; i < 1024; i++) {
+    gray[i] -= mean;
+    norm += gray[i] * gray[i];
+  }
+  norm = Math.sqrt(norm) || 1;
+  for (let i = 0; i < 1024; i++) gray[i] /= norm;
+
+  return Array.from(gray);
 }
 
-function compareFingerprints(a, b) {
-  let dot = 0, normA = 0, normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  return (normA && normB) ? (dot / (Math.sqrt(normA) * Math.sqrt(normB))) : 0;
-}
-
-// 3. قراءة بطاقة NFC (اختياري)
-async function scanNfcCard() {
-  if (!('NDEFReader' in window)) {
-    alert("متصفحك الحالي لا يدعم Web NFC، سيتم الاعتماد على بصمة الزاوية البصرية.");
-    return;
-  }
-  try {
-    const ndef = new NDEFReader();
-    await ndef.scan();
-    document.getElementById('nfcStatus').textContent = "قرّب بطاقة التعريف الآن من ظهر الهاتف...";
-    ndef.onreading = event => {
-      currentNfcId = event.serialNumber || "CARD_VERIFIED";
-      document.getElementById('nfcStatus').textContent = "✔ تم ربط البطاقة البيومترية بنجاح";
-      if (navigator.vibrate) navigator.vibrate(100);
-    };
-  } catch (e) {
-    alert("تأكد من تفعيل NFC في إعدادات الهاتف.");
-  }
+function dotSim(a, b) {
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+  return s;
 }
 
 function handleFiles(files) {
   selectedFiles = Array.from(files);
-  statusMsg.textContent = `تم تجهيز ${selectedFiles.length} ملف. وجّه الكاميرا للزاوية واضغط (2)`;
+  statusMsg.textContent = `تم تجهيز ${selectedFiles.length} ملف. وجّه المربع نحو النافذة واضغط (2)`;
 }
 
-// 4. قاعدة بيانات محلية مشفرة IndexedDB داخل الهاتف بدون إنترنت
 function openDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open("ZRG_AR_VAULT_DB", 1);
+    const req = indexedDB.open("ZRG_AR_FLOATING_DB", 1);
     req.onupgradeneeded = e => {
       const db = e.target.result;
-      if (!db.objectStoreNames.contains("stash")) db.createObjectStore("stash");
+      if (!db.objectStoreNames.contains("vault")) db.createObjectStore("vault");
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
   });
 }
 
-async function lockInAngle() {
+// حفظ البصمة البصرية للهدف (مثلاً النافذة)
+async function hideAtTarget() {
   if (!selectedFiles.length) {
     alert("اختر صوراً أو ملفات PDF أولاً!");
     return;
   }
-  statusMsg.textContent = "جاري تشفير الملفات وربطها ببصمة الزاوية...";
-  const fingerprint = extractVisualFingerprint();
-  const threshold = parseInt(thresholdSlider.value) / 100;
+  if (video.readyState < 2) return;
 
-  const processed = await Promise.all(selectedFiles.map(file => new Promise(res => {
-    const reader = new FileReader();
-    reader.onload = () => res({ name: file.name, type: file.type, data: reader.result });
-    reader.readAsDataURL(file);
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  // التقاط منطقة الهدف في وسط الكاميرا
+  const size = Math.min(vw, vh) * 0.45;
+  const sig = extractPatchSignature((vw - size) / 2, (vh - size) / 2, size, size);
+
+  const items = await Promise.all(selectedFiles.map(file => new Promise(res => {
+    const r = new FileReader();
+    r.onload = () => res({ name: file.name, type: file.type, data: r.result });
+    r.readAsDataURL(file);
   })));
 
-  const payload = { fingerprint, threshold, nfcId: currentNfcId, items: processed };
+  const payload = { sig, items };
   const db = await openDB();
-  const tx = db.transaction("stash", "readwrite");
-  tx.objectStore("stash").put(payload, "active_vault");
+  const tx = db.transaction("vault", "readwrite");
+  tx.objectStore("vault").put(payload, "target_anchor");
 
   tx.oncomplete = () => {
     anchorData = payload;
     selectedFiles = [];
-    if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
-    statusMsg.textContent = "✔ تم الإخفاء بنجاح! وجّه الكاميرا لزاوية أخرى لإغلاقها";
+    if (navigator.vibrate) navigator.vibrate([70, 40, 70]);
+    statusMsg.textContent = "✔ تم إخفاء الملفات في هذا المكان! حرّك الكاميرا للتجربة";
   };
 }
 
 async function loadSavedAnchor() {
   const db = await openDB();
-  const tx = db.transaction("stash", "readonly");
-  const req = tx.objectStore("stash").get("active_vault");
+  const tx = db.transaction("vault", "readonly");
+  const req = tx.objectStore("vault").get("target_anchor");
   req.onsuccess = () => {
     if (req.result) {
       anchorData = req.result;
-      thresholdSlider.value = Math.round(anchorData.threshold * 100);
-      thresholdVal.textContent = thresholdSlider.value + "%";
+      arFolderLabel.textContent = `مجلد مقفل (${anchorData.items.length} ملف) - اضغط للفتح`;
     }
   };
 }
 
-// 5. الفحص الحي المستمر للكاميرا
-function scanLiveFrame() {
-  if (!anchorData || isVaultOpen || cooldown || video.readyState < 2) return;
-  const liveFp = extractVisualFingerprint();
-  const sim = compareFingerprints(anchorData.fingerprint, liveFp);
-  const pct = Math.round(sim * 100);
-  matchBadge.textContent = `تطابق: ${pct}%`;
+// البحث عن مكان الهدف في الكاميرا وإظهار المجلد المقفل فوقه
+function trackTargetInView() {
+  if (!anchorData || isVaultOpen || video.readyState < 2) return;
 
-  const reqThreshold = parseInt(thresholdSlider.value) / 100;
-  if (sim >= reqThreshold) {
-    if (anchorData.nfcId && anchorData.nfcId !== currentNfcId) {
-      statusMsg.textContent = "✦ تم رصد الزاوية! اضغط (مسح البطاقة) وقرّب بطاقتك";
-      return;
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  const size = Math.min(vw, vh) * 0.45;
+
+  // مسح 5 مناطق في الشاشة (الوسط + 4 أركان) لتتبع موقع الهدف أثناء حركة الهاتف
+  const grid = [
+    { x: 0.5, y: 0.42 },
+    { x: 0.35, y: 0.35 },
+    { x: 0.65, y: 0.35 },
+    { x: 0.35, y: 0.52 },
+    { x: 0.65, y: 0.52 }
+  ];
+
+  let bestScore = -1;
+  let bestPos = grid[0];
+
+  for (const pt of grid) {
+    const sx = Math.max(0, Math.min(vw - size, vw * pt.x - size / 2));
+    const sy = Math.max(0, Math.min(vh - size, vh * pt.y - size / 2));
+    const liveSig = extractPatchSignature(sx, sy, size, size);
+    const score = dotSim(anchorData.sig, liveSig);
+    if (score > bestScore) {
+      bestScore = score;
+      bestPos = pt;
     }
-    reticle.classList.add('matched');
-    if (navigator.vibrate) navigator.vibrate(120);
-    openVault(anchorData.items);
+  }
+
+  const pct = Math.max(0, Math.round(bestScore * 100));
+  scanStatus.textContent = `إشارة الهدف: ${pct}%`;
+
+  // إذا ظهر الهدف (النافذة مثلاً) في الكاميرا ولو من بعيد، يظهر فوقه المجلد المقفل
+  if (bestScore >= 0.58) {
+    arFolder.style.left = (bestPos.x * 100) + "%";
+    arFolder.style.top = (bestPos.y * 100) + "%";
+    arFolder.classList.add('visible');
+    document.getElementById('aimBox').style.opacity = '0';
   } else {
-    reticle.classList.remove('matched');
+    arFolder.classList.remove('visible');
+    document.getElementById('aimBox').style.opacity = '1';
+  }
+}
+
+// عند الضغط على أيقونة المجلد العائم فوق النافذة -> يطلب بطاقة التعريف الوطنية
+async function onFolderClicked() {
+  if (!anchorData) return;
+  if (navigator.vibrate) navigator.vibrate(60);
+  document.getElementById('nfcModal').style.display = 'flex';
+  const promptText = document.getElementById('nfcPromptText');
+
+  if ('NDEFReader' in window) {
+    try {
+      nfcAbortController = new AbortController();
+      const ndef = new NDEFReader();
+      await ndef.scan({ signal: nfcAbortController.signal });
+      promptText.textContent = "الرادار جاهز... قرّب بطاقة التعريف الوطنية الآن من ظهر الهاتف";
+
+      ndef.onreading = () => {
+        if (navigator.vibrate) navigator.vibrate([100, 50, 120]);
+        closeNfcModal();
+        openVault(anchorData.items);
+      };
+    } catch (e) {
+      promptText.textContent = "تأكد من تفعيل NFC في إعدادات الهاتف ثم قرّب البطاقة.";
+    }
+  } else {
+    promptText.textContent = "متصفحك لا يدعم NFC؛ افتح الرابط في Google Chrome على أندرويد.";
+  }
+}
+
+function closeNfcModal() {
+  document.getElementById('nfcModal').style.display = 'none';
+  if (nfcAbortController) {
+    nfcAbortController.abort();
+    nfcAbortController = null;
   }
 }
 
 function openVault(items) {
   isVaultOpen = true;
+  arFolder.classList.remove('visible');
   vaultItems = items;
   currentIdx = 0;
   document.getElementById('vaultModal').style.display = 'flex';
@@ -330,9 +427,6 @@ function closeVault() {
   document.getElementById('vaultModal').style.display = 'none';
   document.getElementById('vaultViewer').innerHTML = '';
   isVaultOpen = false;
-  cooldown = true;
-  reticle.classList.remove('matched');
-  setTimeout(() => cooldown = false, 3000);
 }
 
 initCamera();
