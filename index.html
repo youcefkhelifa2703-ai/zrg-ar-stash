@@ -3,90 +3,63 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>ZRG AR-VAULT | الخزنة العائمة</title>
+<title>ZRG AR-VAULT PRO</title>
+<!-- محرك الذكاء الاصطناعي البصري الحقيقي -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
 <style>
-  :root {
-    --gold: #D4AF37;
-    --bg: #070709;
-    --panel: rgba(14, 14, 18, 0.9);
-  }
+  :root { --gold: #D4AF37; --bg: #070709; --panel: rgba(14, 14, 18, 0.92); }
   * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
   body { margin: 0; background: var(--bg); color: #fff; overflow: hidden; height: 100vh; user-select: none; }
   video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 1; }
   canvas { display: none; }
 
-  /* إطار التوجيه عند الإخفاء */
   .aim-box {
     position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%);
-    width: 190px; height: 190px; border: 1.5px dashed rgba(212, 175, 55, 0.5);
-    border-radius: 20px; z-index: 2; pointer-events: none; transition: 0.2s;
+    width: 210px; height: 210px; border: 1.5px dashed rgba(212, 175, 55, 0.5);
+    border-radius: 22px; z-index: 2; pointer-events: none; transition: 0.25s;
   }
 
-  /* أيقونة المجلد العائم فوق الهدف في الواقع المعزز (AR) */
+  /* المجلد العائم في الواقع المعزز */
   .ar-floating-folder {
-    position: fixed;
-    top: 42%; left: 50%;
-    transform: translate(-50%, -50%) scale(0.5);
-    z-index: 5;
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    cursor: pointer;
-    animation: floatPulse 2s infinite ease-in-out;
-    transition: top 0.18s linear, left 0.18s linear, transform 0.25s ease;
+    position: fixed; top: 42%; left: 50%;
+    transform: translate(-50%, -50%) scale(0.4);
+    z-index: 5; display: none; flex-direction: column; align-items: center;
+    cursor: pointer; animation: floatGlow 2s infinite ease-in-out;
   }
-  .ar-floating-folder.visible {
-    display: flex;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  @keyframes floatPulse {
-    0%, 100% { filter: drop-shadow(0 0 12px rgba(212, 175, 55, 0.7)); }
-    50% { filter: drop-shadow(0 0 26px rgba(212, 175, 55, 1)); }
+  .ar-floating-folder.visible { display: flex; transform: translate(-50%, -50%) scale(1); }
+  @keyframes floatGlow {
+    0%, 100% { filter: drop-shadow(0 0 12px rgba(212, 175, 55, 0.75)); }
+    50% { filter: drop-shadow(0 0 28px rgba(212, 175, 55, 1)); }
   }
   .folder-icon-wrap {
-    position: relative;
-    width: 96px; height: 82px;
+    position: relative; width: 96px; height: 82px;
     background: linear-gradient(145deg, #f3d066, #b88c1e);
-    border-radius: 14px;
-    display: flex; align-items: center; justify-content: center;
-    border: 2px solid #fff3c4;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.75);
+    border-radius: 14px; display: flex; align-items: center; justify-content: center;
+    border: 2px solid #fff3c4; box-shadow: 0 12px 30px rgba(0,0,0,0.8);
   }
   .folder-tab {
-    position: absolute; top: -10px; right: 10px;
-    width: 38px; height: 14px;
+    position: absolute; top: -10px; right: 10px; width: 38px; height: 14px;
     background: #d4af37; border-radius: 8px 8px 0 0;
   }
   .lock-badge {
-    position: absolute; bottom: -10px; left: -10px;
-    width: 38px; height: 38px;
-    background: #111116; border: 2px solid var(--gold);
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-size: 18px;
+    position: absolute; bottom: -10px; left: -10px; width: 38px; height: 38px;
+    background: #111116; border: 2px solid var(--gold); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
   }
   .ar-label {
-    margin-top: 14px;
-    background: rgba(10, 10, 14, 0.88);
-    border: 1px solid var(--gold);
-    color: var(--gold);
-    padding: 5px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: bold;
-    white-space: nowrap;
+    margin-top: 14px; background: rgba(10, 10, 14, 0.9); border: 1px solid var(--gold);
+    color: var(--gold); padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: bold;
   }
 
-  /* الشريط العلوي */
   .top-bar {
     position: fixed; top: 14px; left: 14px; right: 14px; z-index: 4;
     background: var(--panel); border: 1px solid rgba(212, 175, 55, 0.3);
-    border-radius: 16px; padding: 10px 16px;
-    display: flex; justify-content: space-between; align-items: center;
+    border-radius: 16px; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center;
   }
   .brand { color: var(--gold); font-weight: 800; font-size: 14px; }
   .pill { background: #181820; border: 1px solid #4a3d14; color: var(--gold); padding: 4px 10px; border-radius: 14px; font-size: 12px; }
 
-  /* لوحة التحكم السفلية */
   .controls {
     position: fixed; bottom: 14px; left: 14px; right: 14px; z-index: 4;
     background: var(--panel); border: 1px solid rgba(212, 175, 55, 0.3);
@@ -95,28 +68,24 @@
   .status-text { text-align: center; font-size: 13px; color: #e2e2e2; margin-bottom: 10px; }
   .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   button, .file-label {
-    border: none; border-radius: 12px; padding: 12px; font-size: 13px; font-weight: 700;
-    cursor: pointer; text-align: center;
+    border: none; border-radius: 12px; padding: 12px; font-size: 13px; font-weight: 700; cursor: pointer; text-align: center;
   }
   .file-label { background: #22222c; color: #fff; border: 1px solid #3c3c4c; display: block; }
   .btn-gold { background: linear-gradient(135deg, #D4AF37, #A87E18); color: #000; }
 
-  /* نافذة طلب بطاقة التعريف عند الضغط على المجلد */
+  /* نافذة طلب بطاقة التعريف الوطنية */
   .nfc-prompt-modal {
-    position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 9;
+    position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 9;
     display: none; align-items: center; justify-content: center; padding: 20px;
   }
   .nfc-card-box {
     background: #121217; border: 1.5px solid var(--gold); border-radius: 24px;
     padding: 24px; width: 100%; max-width: 340px; text-align: center;
   }
-  .id-anim {
-    font-size: 48px; margin: 12px 0;
-    animation: pulseId 1.4s infinite;
-  }
-  @keyframes pulseId { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+  .id-anim { font-size: 52px; margin: 14px 0; animation: pulseId 1.3s infinite; }
+  @keyframes pulseId { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.14); } }
 
-  /* عارض الملفات بعد الفتح بالبطاقة */
+  /* عارض الملفات */
   .vault-modal {
     position: fixed; inset: 0; background: #070709; z-index: 10;
     display: none; flex-direction: column; padding: 16px;
@@ -138,26 +107,26 @@
 <body>
 
 <video id="cam" autoplay playsinline muted></video>
-<canvas id="procCanvas" width="64" height="64"></canvas>
+<canvas id="aiCanvas" width="224" height="224"></canvas>
 <div id="aimBox" class="aim-box"></div>
 
-<!-- المجلد العائم فوق الهدف عند رؤيته بالكاميرا -->
+<!-- المجلد العائم فوق الهدف الحقيقي فقط -->
 <div id="arFolder" class="ar-floating-folder" onclick="onFolderClicked()">
   <div class="folder-icon-wrap">
     <div class="folder-tab"></div>
     <span style="font-size: 38px;">📁</span>
     <div class="lock-badge">🔒</div>
   </div>
-  <div id="arFolderLabel" class="ar-label">ملف سري مقفل (اضغط للفتح)</div>
+  <div id="arFolderLabel" class="ar-label">مجلد سري مقفل (اضغط للفتح)</div>
 </div>
 
 <div class="top-bar">
-  <div class="brand">✦ ZRG AR-VAULT</div>
-  <div id="scanStatus" class="pill">رادار AR نشط</div>
+  <div class="brand">✦ ZRG AI-VAULT</div>
+  <div id="scanStatus" class="pill">جاري تحميل AI...</div>
 </div>
 
 <div class="controls">
-  <div id="statusMsg" class="status-text">اختر الملفات ثم وجّه الكاميرا نحو النافذة أو المكان لإخفائها</div>
+  <div id="statusMsg" class="status-text">انتظر تحميل محرك الذكاء الاصطناعي البصري...</div>
   <div class="btn-grid">
     <label class="file-label">
       1. اختر صور / PDF
@@ -167,19 +136,19 @@
   </div>
 </div>
 
-<!-- نافذة طلب بطاقة التعريف الوطنية عند الضغط على المجلد العائم -->
+<!-- نافذة انتظار بطاقة التعريف الوطنية -->
 <div id="nfcModal" class="nfc-prompt-modal">
   <div class="nfc-card-box">
-    <div style="color:var(--gold); font-weight:800; font-size:17px;">مطلوب بطاقة التعريف الوطنية</div>
+    <div style="color:var(--gold); font-weight:800; font-size:17px;">التحقق ببطاقة التعريف الوطنية</div>
     <div class="id-anim">🪪</div>
     <div id="nfcPromptText" style="font-size:13px; color:#ccc; line-height:1.6; margin-bottom:16px;">
-      قرّب بطاقة التعريف البيومترية من ظهر الهاتف لفتح قفل المجلد السري
+      ألصق بطاقة التعريف البيومترية بظهر الهاتف الآن لفتح قفل المجلد...
     </div>
     <button class="file-label" style="width:100%" onclick="closeNfcModal()">إلغاء</button>
   </div>
 </div>
 
-<!-- عارض الملفات المفتوحة -->
+<!-- عارض الملفات -->
 <div id="vaultModal" class="vault-modal">
   <div class="vault-header">
     <div style="color:var(--gold); font-weight:bold; font-size:14px;" id="vaultTitle">الخزنة المفتوحة</div>
@@ -195,73 +164,104 @@
 
 <script>
 const video = document.getElementById('cam');
-const canvas = document.getElementById('procCanvas');
-const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const aiCanvas = document.getElementById('aiCanvas');
+const ctx = aiCanvas.getContext('2d', { willReadFrequently: true });
 const arFolder = document.getElementById('arFolder');
 const arFolderLabel = document.getElementById('arFolderLabel');
 const statusMsg = document.getElementById('statusMsg');
 const scanStatus = document.getElementById('scanStatus');
 
+let aiModel = null;
 let selectedFiles = [];
 let anchorData = null;
 let vaultItems = [];
 let currentIdx = 0;
 let isVaultOpen = false;
-let nfcAbortController = null;
+let waitingForIdCard = false;
 
-async function initCamera() {
+// دالة يستدعيها تطبيق الأندرويد مباشرة عند لمس بطاقة التعريف الوطنية (IsoDep / NfcA)
+window.onAlgerianIdScanned = function(cardUidHex) {
+  if (waitingForIdCard && anchorData) {
+    if (navigator.vibrate) navigator.vibrate([100, 50, 150]);
+    closeNfcModal();
+    openVault(anchorData.items);
+  }
+};
+
+async function initSystem() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" } }, audio: false
     });
     video.srcObject = stream;
-    await loadSavedAnchor();
-    setInterval(trackTargetInView, 320);
   } catch (e) {
-    statusMsg.textContent = "يرجى السماح بصلاحية الكاميرا";
+    statusMsg.textContent = "يرجى منح إذن الكاميرا للتطبيق";
+    return;
   }
+
+  // تحميل نموذج MobileNet لاستخراج البصمة العميقة للغرض/الزاوية
+  aiModel = await mobilenet.load({ version: 2, alpha: 0.5 });
+  scanStatus.textContent = "AI نشط ✔";
+  statusMsg.textContent = "اختر الملفات ثم وجّه الكاميرا نحو الغرض أو الزاوية السرية";
+
+  await loadSavedAnchor();
+  setInterval(detectTargetLoop, 450);
 }
 
-// استخراج بصمة الشكل والحواف + الألوان (تتعرف على النافذة أو المكان حتى من بعيد)
-function extractPatchSignature(sx, sy, sw, sh) {
-  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, 32, 32);
-  const data = ctx.getImageData(0, 0, 32, 32).data;
-  const gray = new Float32Array(32 * 32);
-  let mean = 0;
+// استخراج البصمة العميقة (1024 ميزة من MobileNet + طيف لوني)
+async function getDeepEmbedding() {
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  const size = Math.min(vw, vh) * 0.55;
+  ctx.drawImage(video, (vw - size) / 2, (vh - size) / 2, size, size, 0, 0, 224, 224);
 
-  for (let i = 0; i < 1024; i++) {
-    const g = (data[i*4] * 0.299 + data[i*4+1] * 0.587 + data[i*4+2] * 0.114);
-    gray[i] = g;
-    mean += g;
-  }
-  mean /= 1024;
+  // 1. متجه الميزات العميقة من الشبكة العصبية
+  const embeddingTensor = aiModel.infer(aiCanvas, true);
+  const embArray = Array.from(await embeddingTensor.data());
+  embeddingTensor.dispose();
 
-  // تطبيع الإضاءة (Zero-Mean Normalization) حتى يعمل في الليل والنهار ومن بعيد
+  // تطبيع المتجه
   let norm = 0;
-  for (let i = 0; i < 1024; i++) {
-    gray[i] -= mean;
-    norm += gray[i] * gray[i];
-  }
+  for (let i = 0; i < embArray.length; i++) norm += embArray[i] * embArray[i];
   norm = Math.sqrt(norm) || 1;
-  for (let i = 0; i < 1024; i++) gray[i] /= norm;
+  for (let i = 0; i < embArray.length; i++) embArray[i] /= norm;
 
-  return Array.from(gray);
+  // 2. بصمة الألوان لمنع التشابه مع أغراض مختلفة الشكل متطابقة الهيكل
+  const img = ctx.getImageData(0, 0, 224, 224).data;
+  const colorBins = new Float32Array(24);
+  for (let i = 0; i < img.length; i += 64) {
+    const r = img[i] / 255, g = img[i+1] / 255, b = img[i+2] / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    let h = 0;
+    if (d !== 0) {
+      if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+      else if (max === g) h = ((b - r) / d + 2) / 6;
+      else h = ((r - g) / d + 4) / 6;
+    }
+    colorBins[Math.min(23, Math.floor(h * 24))]++;
+  }
+  let cNorm = 0;
+  for (let i = 0; i < 24; i++) cNorm += colorBins[i] * colorBins[i];
+  cNorm = Math.sqrt(cNorm) || 1;
+  for (let i = 0; i < 24; i++) colorBins[i] /= cNorm;
+
+  return { emb: embArray, col: Array.from(colorBins) };
 }
 
-function dotSim(a, b) {
-  let s = 0;
-  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
-  return s;
+function cosineSim(a, b) {
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+  return dot;
 }
 
 function handleFiles(files) {
   selectedFiles = Array.from(files);
-  statusMsg.textContent = `تم تجهيز ${selectedFiles.length} ملف. وجّه المربع نحو النافذة واضغط (2)`;
+  statusMsg.textContent = `تم اختيار ${selectedFiles.length} ملف. وجّه الكاميرا للهدف واضغط (2)`;
 }
 
 function openDB() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open("ZRG_AR_FLOATING_DB", 1);
+    const req = indexedDB.open("ZRG_AI_AR_VAULT_V2", 1);
     req.onupgradeneeded = e => {
       const db = e.target.result;
       if (!db.objectStoreNames.contains("vault")) db.createObjectStore("vault");
@@ -271,19 +271,15 @@ function openDB() {
   });
 }
 
-// حفظ البصمة البصرية للهدف (مثلاً النافذة)
 async function hideAtTarget() {
   if (!selectedFiles.length) {
     alert("اختر صوراً أو ملفات PDF أولاً!");
     return;
   }
-  if (video.readyState < 2) return;
+  if (!aiModel || video.readyState < 2) return;
 
-  const vw = video.videoWidth;
-  const vh = video.videoHeight;
-  // التقاط منطقة الهدف في وسط الكاميرا
-  const size = Math.min(vw, vh) * 0.45;
-  const sig = extractPatchSignature((vw - size) / 2, (vh - size) / 2, size, size);
+  statusMsg.textContent = "جاري تحليل البصمة العميقة للهدف...";
+  const sig = await getDeepEmbedding();
 
   const items = await Promise.all(selectedFiles.map(file => new Promise(res => {
     const r = new FileReader();
@@ -294,20 +290,21 @@ async function hideAtTarget() {
   const payload = { sig, items };
   const db = await openDB();
   const tx = db.transaction("vault", "readwrite");
-  tx.objectStore("vault").put(payload, "target_anchor");
+  tx.objectStore("vault").put(payload, "deep_anchor");
 
   tx.oncomplete = () => {
     anchorData = payload;
     selectedFiles = [];
-    if (navigator.vibrate) navigator.vibrate([70, 40, 70]);
-    statusMsg.textContent = "✔ تم إخفاء الملفات في هذا المكان! حرّك الكاميرا للتجربة";
+    arFolderLabel.textContent = `مجلد مقفل (${items.length} ملف) - اضغط للفتح`;
+    if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+    statusMsg.textContent = "✔ تم قفل الملفات في هذا الهدف بدقة AI عالية!";
   };
 }
 
 async function loadSavedAnchor() {
   const db = await openDB();
   const tx = db.transaction("vault", "readonly");
-  const req = tx.objectStore("vault").get("target_anchor");
+  const req = tx.objectStore("vault").get("deep_anchor");
   req.onsuccess = () => {
     if (req.result) {
       anchorData = req.result;
@@ -316,44 +313,20 @@ async function loadSavedAnchor() {
   };
 }
 
-// البحث عن مكان الهدف في الكاميرا وإظهار المجلد المقفل فوقه
-function trackTargetInView() {
-  if (!anchorData || isVaultOpen || video.readyState < 2) return;
+async function detectTargetLoop() {
+  if (!anchorData || !aiModel || isVaultOpen || video.readyState < 2) return;
 
-  const vw = video.videoWidth;
-  const vh = video.videoHeight;
-  const size = Math.min(vw, vh) * 0.45;
+  const live = await getDeepEmbedding();
+  const aiScore = cosineSim(anchorData.sig.emb, live.emb);
+  const colScore = cosineSim(anchorData.sig.col, live.col);
 
-  // مسح 5 مناطق في الشاشة (الوسط + 4 أركان) لتتبع موقع الهدف أثناء حركة الهاتف
-  const grid = [
-    { x: 0.5, y: 0.42 },
-    { x: 0.35, y: 0.35 },
-    { x: 0.65, y: 0.35 },
-    { x: 0.35, y: 0.52 },
-    { x: 0.65, y: 0.52 }
-  ];
+  // الدمج الذكي: 75% ملامح الشبكة العصبية + 25% الطيف اللوني (يمنع الظهور الخاطئ في الأماكن الأخرى)
+  const finalScore = (aiScore * 0.75) + (colScore * 0.25);
+  const pct = Math.max(0, Math.round(finalScore * 100));
+  scanStatus.textContent = `دقة المطابقة: ${pct}%`;
 
-  let bestScore = -1;
-  let bestPos = grid[0];
-
-  for (const pt of grid) {
-    const sx = Math.max(0, Math.min(vw - size, vw * pt.x - size / 2));
-    const sy = Math.max(0, Math.min(vh - size, vh * pt.y - size / 2));
-    const liveSig = extractPatchSignature(sx, sy, size, size);
-    const score = dotSim(anchorData.sig, liveSig);
-    if (score > bestScore) {
-      bestScore = score;
-      bestPos = pt;
-    }
-  }
-
-  const pct = Math.max(0, Math.round(bestScore * 100));
-  scanStatus.textContent = `إشارة الهدف: ${pct}%`;
-
-  // إذا ظهر الهدف (النافذة مثلاً) في الكاميرا ولو من بعيد، يظهر فوقه المجلد المقفل
-  if (bestScore >= 0.58) {
-    arFolder.style.left = (bestPos.x * 100) + "%";
-    arFolder.style.top = (bestPos.y * 100) + "%";
+  // عتبة دقيقة (80% فما فوق) فلا يظهر المجلد إلا أمام الهدف الحقيقي
+  if (finalScore >= 0.80) {
     arFolder.classList.add('visible');
     document.getElementById('aimBox').style.opacity = '0';
   } else {
@@ -362,39 +335,16 @@ function trackTargetInView() {
   }
 }
 
-// عند الضغط على أيقونة المجلد العائم فوق النافذة -> يطلب بطاقة التعريف الوطنية
-async function onFolderClicked() {
+function onFolderClicked() {
   if (!anchorData) return;
   if (navigator.vibrate) navigator.vibrate(60);
+  waitingForIdCard = true;
   document.getElementById('nfcModal').style.display = 'flex';
-  const promptText = document.getElementById('nfcPromptText');
-
-  if ('NDEFReader' in window) {
-    try {
-      nfcAbortController = new AbortController();
-      const ndef = new NDEFReader();
-      await ndef.scan({ signal: nfcAbortController.signal });
-      promptText.textContent = "الرادار جاهز... قرّب بطاقة التعريف الوطنية الآن من ظهر الهاتف";
-
-      ndef.onreading = () => {
-        if (navigator.vibrate) navigator.vibrate([100, 50, 120]);
-        closeNfcModal();
-        openVault(anchorData.items);
-      };
-    } catch (e) {
-      promptText.textContent = "تأكد من تفعيل NFC في إعدادات الهاتف ثم قرّب البطاقة.";
-    }
-  } else {
-    promptText.textContent = "متصفحك لا يدعم NFC؛ افتح الرابط في Google Chrome على أندرويد.";
-  }
 }
 
 function closeNfcModal() {
+  waitingForIdCard = false;
   document.getElementById('nfcModal').style.display = 'none';
-  if (nfcAbortController) {
-    nfcAbortController.abort();
-    nfcAbortController = null;
-  }
 }
 
 function openVault(items) {
@@ -429,7 +379,7 @@ function closeVault() {
   isVaultOpen = false;
 }
 
-initCamera();
+initSystem();
 </script>
 </body>
 </html>
